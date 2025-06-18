@@ -1,0 +1,13 @@
+{
+  "module_name": "obstacles-distance",
+  "namespace": "viam",
+  "language": "go",
+  "resource_type": "service",
+  "resource_subtype": "vision",
+  "model_name": "obstacles-distance",
+  "enable_cloud_build": true,
+  "initialize_git": false,
+  "generator_version": "0.1.0",
+  "generated_on": "2025-06-18T20:54:18.66149Z",
+  "module_readme_link": "README.md"
+}
