@@ -1,4 +1,3 @@
-
 GO_BUILD_ENV :=
 GO_BUILD_FLAGS :=
 MODULE_BINARY := bin/obstacles-distance
@@ -9,7 +8,7 @@ ifeq ($(VIAM_TARGET_OS), windows)
 	MODULE_BINARY = bin/obstacles-distance.exe
 endif
 
-$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go 
+$(MODULE_BINARY): Makefile go.mod */*.go
 	$(GO_BUILD_ENV) go build $(GO_BUILD_FLAGS) -o $(MODULE_BINARY) cmd/module/main.go
 
 lint:
