@@ -7,7 +7,7 @@
   "models": [
     {
       "api": "rdk:service:vision",
-      "model": "viam:obstacles-distance:obstacles-distance",
+      "model": "viam:vision:obstacles-distance",
       "short_description": "Provide a short (100 characters or less) description of this model here",
       "markdown_link": "README.md#model-viamobstacles-distanceobstacles-distance"
     }
