@@ -9,6 +9,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	go.opencensus.io v0.24.0
 	go.viam.com/rdk v0.81.0
+	go.viam.com/utils v0.1.147
 )
 
 require (
@@ -143,7 +144,6 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.viam.com/api v0.1.447 // indirect
 	go.viam.com/test v1.2.4 // indirect
-	go.viam.com/utils v0.1.147 // indirect
 	golang.org/x/arch v0.18.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e // indirect
