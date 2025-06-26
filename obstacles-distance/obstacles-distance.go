@@ -1,5 +1,7 @@
 // Package obstaclesdistance uses an underlying camera to fulfill vision service methods, specifically
 // GetObjectPointClouds, which performs several queries of NextPointCloud and returns a median point.
+// The behavior for this module was buggy before moving over from the RDK. The service is slow and sometimes disconnects,
+// but this occured as part of the RDK and as a standalone module, so it should be further investigated at some point.
 package obstaclesdistance
 
 import (
