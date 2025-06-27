@@ -5,26 +5,26 @@
 package obstaclesdistance
 
 import (
-    "context"
-    "image"
-    "math"
-    "sort"
+	"context"
+	"image"
+	"math"
+	"sort"
 
-    "github.com/golang/geo/r3"
-    "github.com/pkg/errors"
-    "go.opencensus.io/trace"
+	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
-    "go.viam.com/rdk/components/camera"
-    "go.viam.com/rdk/logging"
-    "go.viam.com/rdk/pointcloud"
-    "go.viam.com/rdk/resource"
-    vision "go.viam.com/rdk/services/vision"
-    "go.viam.com/rdk/spatialmath"
-    "go.viam.com/rdk/utils"
-    vis "go.viam.com/rdk/vision"
-    "go.viam.com/rdk/vision/classification"
-    "go.viam.com/rdk/vision/objectdetection"
-    "go.viam.com/rdk/vision/viscapture"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
+	vision "go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
+	vis "go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 	"go.viam.com/utils/rpc"
 )
 
@@ -43,12 +43,12 @@ type DistanceDetectorConfig struct {
 }
 
 type obstacleDistanceService struct {
-    resource.AlwaysRebuild
-    name         resource.Name
-    logger       logging.Logger
-    segmenter    func(context.Context, camera.Camera) ([]*vis.Object, error)
-    defaultCamera camera.Camera
-    deps         resource.Dependencies
+	resource.AlwaysRebuild
+	name          resource.Name
+	logger        logging.Logger
+	segmenter     func(context.Context, camera.Camera) ([]*vis.Object, error)
+	defaultCamera camera.Camera
+	deps          resource.Dependencies
 }
 
 func init() {
@@ -76,82 +76,82 @@ func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string,
 	if config.NumQueries < 1 || config.NumQueries > 20 {
 		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
-    if config.DefaultCamera != "" {
-        reqDeps = append(reqDeps, config.DefaultCamera)
-    }
+	if config.DefaultCamera != "" {
+		reqDeps = append(reqDeps, config.DefaultCamera)
+	}
 	return reqDeps, optDeps, nil
 }
 
 func registerObstacleDistanceDetector(
-    ctx context.Context,
-    name resource.Name,
-    conf *DistanceDetectorConfig,
-    deps resource.Dependencies,
+	ctx context.Context,
+	name resource.Name,
+	conf *DistanceDetectorConfig,
+	deps resource.Dependencies,
 ) (vision.Service, error) {
-    _, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
-    defer span.End()
-    
-    if conf == nil {
-        return nil, errors.New("config for obstacles_distance cannot be nil")
-    }
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
+	defer span.End()
 
-    segmenter := func(ctx context.Context, src camera.Camera) ([]*vis.Object, error) {
-        // Your existing segmenter logic here
-        clouds := make([]pointcloud.PointCloud, 0, conf.NumQueries)
-        
-        for i := 0; i < conf.NumQueries; i++ {
-            nxtPC, err := src.NextPointCloud(ctx)
-            if err != nil {
-                return nil, err
-            }
-            if nxtPC.Size() == 0 {
-                continue
-            }
-            clouds = append(clouds, nxtPC)
-        }
-        
-        if len(clouds) == 0 {
-            return nil, errors.New("none of the input point clouds contained any points")
-        }
+	if conf == nil {
+		return nil, errors.New("config for obstacles_distance cannot be nil")
+	}
 
-        median, err := medianFromPointClouds(ctx, clouds)
-        if err != nil {
-            return nil, err
-        }
+	segmenter := func(ctx context.Context, src camera.Camera) ([]*vis.Object, error) {
+		// Your existing segmenter logic here
+		clouds := make([]pointcloud.PointCloud, 0, conf.NumQueries)
 
-        vector := pointcloud.NewVector(median.X, median.Y, median.Z)
-        pt := spatialmath.NewPoint(vector, "obstacle")
+		for i := 0; i < conf.NumQueries; i++ {
+			nxtPC, err := src.NextPointCloud(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if nxtPC.Size() == 0 {
+				continue
+			}
+			clouds = append(clouds, nxtPC)
+		}
 
-        pcToReturn := pointcloud.NewBasicEmpty()
-        basicData := pointcloud.NewBasicData()
-        err = pcToReturn.Set(vector, basicData)
-        if err != nil {
-            return nil, err
-        }
+		if len(clouds) == 0 {
+			return nil, errors.New("none of the input point clouds contained any points")
+		}
 
-        toReturn := make([]*vis.Object, 1)
-        toReturn[0] = &vis.Object{PointCloud: pcToReturn, Geometry: pt}
+		median, err := medianFromPointClouds(ctx, clouds)
+		if err != nil {
+			return nil, err
+		}
 
-        return toReturn, nil
-    }
+		vector := pointcloud.NewVector(median.X, median.Y, median.Z)
+		pt := spatialmath.NewPoint(vector, "obstacle")
+
+		pcToReturn := pointcloud.NewBasicEmpty()
+		basicData := pointcloud.NewBasicData()
+		err = pcToReturn.Set(vector, basicData)
+		if err != nil {
+			return nil, err
+		}
+
+		toReturn := make([]*vis.Object, 1)
+		toReturn[0] = &vis.Object{PointCloud: pcToReturn, Geometry: pt}
+
+		return toReturn, nil
+	}
 	var defaultCam camera.Camera
 	var err error
-    if conf.DefaultCamera != "" {
-        defaultCam, err = camera.FromDependencies(deps, conf.DefaultCamera)
-        if err != nil {
-            return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
-        }
-    }
+	if conf.DefaultCamera != "" {
+		defaultCam, err = camera.FromDependencies(deps, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
+	}
 
-    myObsDist := &obstacleDistanceService{
-        name:          name,
-        logger:        logging.NewLogger("obstacles-distance"),
-        segmenter:     segmenter,
-        defaultCamera: defaultCam,
-        deps:          deps,
-    }
+	myObsDist := &obstacleDistanceService{
+		name:          name,
+		logger:        logging.NewLogger("obstacles-distance"),
+		segmenter:     segmenter,
+		defaultCamera: defaultCam,
+		deps:          deps,
+	}
 
-    return myObsDist, nil
+	return myObsDist, nil
 }
 
 func medianFromPointClouds(ctx context.Context, clouds []pointcloud.PointCloud) (r3.Vector, error) {
@@ -217,28 +217,28 @@ func getMedianPoint(pts []r3.Vector) r3.Vector {
 }
 
 func (s *obstacleDistanceService) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vis.Object, error) {
-    var cam camera.Camera
-    var err error
+	var cam camera.Camera
+	var err error
 
-    if cameraName != "" {
-        cam, err = camera.FromDependencies(s.deps, cameraName)
-        if err != nil {
-            return nil, err
-        }
-    } else if s.defaultCamera != nil {
-        cam = s.defaultCamera
-    } else {
-        return nil, errors.New("no camera specified")
-    }
+	if cameraName != "" {
+		cam, err = camera.FromDependencies(s.deps, cameraName)
+		if err != nil {
+			return nil, err
+		}
+	} else if s.defaultCamera != nil {
+		cam = s.defaultCamera
+	} else {
+		return nil, errors.New("no camera specified")
+	}
 
-    return s.segmenter(ctx, cam)
+	return s.segmenter(ctx, cam)
 }
 
 func (s *obstacleDistanceService) CaptureAllFromCamera(ctx context.Context, cameraName string, captureOptions viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
-    var cam camera.Camera
-    var err error
+	var cam camera.Camera
+	var err error
 
-    if cameraName != "" {
+	if cameraName != "" {
 		cam, err = camera.FromDependencies(s.deps, cameraName)
 		if err != nil {
 			return viscapture.VisCapture{}, err
@@ -278,37 +278,37 @@ func (s *obstacleDistanceService) NewClientFromConn(ctx context.Context, conn rp
 }
 
 func (s *obstacleDistanceService) Detections(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-    return nil, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (s *obstacleDistanceService) DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-    return nil, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (s *obstacleDistanceService) Classifications(ctx context.Context, img image.Image, count int, extra map[string]interface{}) (classification.Classifications, error) {
-    return nil, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (s *obstacleDistanceService) ClassificationsFromCamera(ctx context.Context, cameraName string, count int, extra map[string]interface{}) (classification.Classifications, error) {
-    return nil, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (s *obstacleDistanceService) GetProperties(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
-    return &vision.Properties{
-        ClassificationSupported: false,
-        DetectionSupported:      false,
-        ObjectPCDsSupported:     true,
-    }, nil
+	return &vision.Properties{
+		ClassificationSupported: false,
+		DetectionSupported:      false,
+		ObjectPCDsSupported:     true,
+	}, nil
 }
 
 func (s *obstacleDistanceService) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-    return nil, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (s *obstacleDistanceService) Name() resource.Name {
-    return s.name
+	return s.name
 }
 
 func (s *obstacleDistanceService) Close(ctx context.Context) error {
-    return nil
+	return nil
 }
