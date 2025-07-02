@@ -1,137 +1,182 @@
+// Package obstaclesdistance uses an underlying camera to fulfill vision service methods, specifically
+// GetObjectPointClouds, which performs several queries of NextPointCloud and returns a median point.
 package obstaclesdistance
 
 import (
 	"context"
-	"image"
+	"math"
+	"sort"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
+
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/vision"
-	vis "go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/classification"
-	objdet "go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/rdk/vision/viscapture"
-	"go.viam.com/utils/rpc"
+	svision "go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
+	vision "go.viam.com/rdk/vision"
 )
 
-var (
-	ObstaclesDistance = resource.NewModel("viam", "obstacles-distance", "obstacles-distance")
-	errUnimplemented  = errors.New("unimplemented")
-)
+var ObstaclesDistance = resource.DefaultModelFamily.WithModel("obstacles_distance")
+
+// DefaultNumQueries is the default number of times the camera should be queried before averaging.
+const DefaultNumQueries = 10
+
+// DistanceDetectorConfig specifies the parameters for the camera to be used
+// for the obstacle distance detection service.
+type DistanceDetectorConfig struct {
+	NumQueries    int    `json:"num_queries"`
+	DefaultCamera string `json:"camera_name"`
+}
 
 func init() {
-	resource.RegisterService(vision.API, ObstaclesDistance,
-		resource.Registration[vision.Service, *Config]{
-			Constructor: newObstaclesDistanceObstaclesDistance,
+	resource.RegisterService(svision.API, ObstaclesDistance, resource.Registration[svision.Service, *DistanceDetectorConfig]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
+		) (svision.Service, error) {
+			attrs, err := resource.NativeConfig[*DistanceDetectorConfig](c)
+			if err != nil {
+				return nil, err
+			}
+			return registerObstacleDistanceDetector(ctx, c.ResourceName(), attrs, deps, logger)
+		},
+	})
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string, error) {
+	deps := []string{}
+	if config.NumQueries == 0 {
+		config.NumQueries = DefaultNumQueries
+	}
+	if config.NumQueries < 1 || config.NumQueries > 20 {
+		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
+	}
+	return deps, nil, nil
+}
+
+func registerObstacleDistanceDetector(
+	ctx context.Context,
+	name resource.Name,
+	conf *DistanceDetectorConfig,
+	deps resource.Dependencies,
+	logger logging.Logger,
+) (svision.Service, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
+	defer span.End()
+	if conf == nil {
+		return nil, errors.New("config for obstacles_distance cannot be nil")
+	}
+
+	segmenter := func(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
+		clouds := make([]pointcloud.PointCloud, 0, conf.NumQueries)
+
+		for i := 0; i < conf.NumQueries; i++ {
+			nxtPC, err := src.NextPointCloud(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if nxtPC.Size() == 0 {
+				continue
+			}
+			clouds = append(clouds, nxtPC)
+		}
+		if len(clouds) == 0 {
+			return nil, errors.New("none of the input point clouds contained any points")
+		}
+
+		median, err := medianFromPointClouds(ctx, clouds)
+		if err != nil {
+			return nil, err
+		}
+
+		// package the result into a vision.Object
+		vector := pointcloud.NewVector(median.X, median.Y, median.Z)
+		pt := spatialmath.NewPoint(vector, "obstacle")
+
+		pcToReturn := pointcloud.NewBasicEmpty()
+		basicData := pointcloud.NewBasicData()
+		err = pcToReturn.Set(vector, basicData)
+		if err != nil {
+			return nil, err
+		}
+
+		toReturn := make([]*vision.Object, 1)
+		toReturn[0] = &vision.Object{PointCloud: pcToReturn, Geometry: pt}
+
+		return toReturn, nil
+	}
+	if conf.DefaultCamera != "" {
+		_, err := camera.FromDependencies(deps, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
+	}
+	return svision.NewService(name, deps, logger, nil, nil, nil, segmenter, conf.DefaultCamera)
+}
+
+func medianFromPointClouds(ctx context.Context, clouds []pointcloud.PointCloud) (r3.Vector, error) {
+	var results [][]r3.Vector // a slice for each process, which will contain a slice of vectors
+	err := utils.GroupWorkParallel(
+		ctx,
+		len(clouds),
+		func(numGroups int) {
+			results = make([][]r3.Vector, numGroups)
+		},
+		func(groupNum, groupSize, from, to int) (utils.MemberWorkFunc, utils.GroupWorkDoneFunc) {
+			closestPoints := make([]r3.Vector, 0, groupSize)
+			return func(memberNum, workNum int) {
+					closestPoint := getClosestPoint(clouds[workNum])
+					closestPoints = append(closestPoints, closestPoint)
+				}, func() {
+					results[groupNum] = closestPoints
+				}
 		},
 	)
-}
-
-type Config struct {
-	/*
-		Put config attributes here. There should be public/exported fields
-		with a `json` parameter at the end of each attribute.
-
-		Example config struct:
-			type Config struct {
-				Pin   string `json:"pin"`
-				Board string `json:"board"`
-				MinDeg *float64 `json:"min_angle_deg,omitempty"`
-			}
-
-		If your model does not need a config, replace *Config in the init
-		function with resource.NoNativeConfig
-	*/
-}
-
-// Validate ensures all parts of the config are valid and important fields exist.
-// Returns implicit required (first return) and optional (second return) dependencies based on the config.
-// The path is the JSON path in your robot's config (not the `Config` struct) to the
-// resource being validated; e.g. "components.0".
-func (cfg *Config) Validate(path string) ([]string, []string, error) {
-	// Add config validation code here
-	return nil, nil, nil
-}
-
-type obstaclesDistanceObstaclesDistance struct {
-	resource.AlwaysRebuild
-
-	name resource.Name
-
-	logger logging.Logger
-	cfg    *Config
-
-	cancelCtx  context.Context
-	cancelFunc func()
-}
-
-func newObstaclesDistanceObstaclesDistance(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (vision.Service, error) {
-	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
-		return nil, err
+		return r3.Vector{}, err
 	}
-
-	return NewObstaclesDistance(ctx, deps, rawConf.ResourceName(), conf, logger)
-
-}
-
-func NewObstaclesDistance(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) (vision.Service, error) {
-
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
-	s := &obstaclesDistanceObstaclesDistance{
-		name:       name,
-		logger:     logger,
-		cfg:        conf,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+	candidates := make([]r3.Vector, 0, len(clouds))
+	for _, r := range results {
+		candidates = append(candidates, r...)
 	}
-	return s, nil
+	if len(candidates) == 0 {
+		return r3.Vector{}, errors.New("point cloud list is empty, could not find median point")
+	}
+	return getMedianPoint(candidates), nil
 }
 
-func (s *obstaclesDistanceObstaclesDistance) Name() resource.Name {
-	return s.name
+func getClosestPoint(cloud pointcloud.PointCloud) r3.Vector {
+	minDistance := math.MaxFloat64
+	minPoint := r3.Vector{}
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
+		dist := pt.Norm2()
+		if dist < minDistance {
+			minDistance = dist
+			minPoint = pt
+		}
+		return true
+	})
+	return minPoint
 }
 
-func (s *obstaclesDistanceObstaclesDistance) NewClientFromConn(ctx context.Context, conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) (vision.Service, error) {
-	panic("not implemented")
+// to calculate the median, will need to sort the vectors by distance from origin.
+func sortVectors(v []r3.Vector) {
+	sort.Sort(points(v))
 }
 
-func (s *obstaclesDistanceObstaclesDistance) DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{}) ([]objdet.Detection, error) {
-	panic("not implemented")
-}
+type points []r3.Vector
 
-func (s *obstaclesDistanceObstaclesDistance) Detections(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objdet.Detection, error) {
-	panic("not implemented")
-}
+func (p points) Len() int           { return len(p) }
+func (p points) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p points) Less(i, j int) bool { return p[i].Norm2() < p[j].Norm2() }
 
-func (s *obstaclesDistanceObstaclesDistance) ClassificationsFromCamera(ctx context.Context, cameraName string, n int, extra map[string]interface{}) (classification.Classifications, error) {
-	panic("not implemented")
-}
-
-func (s *obstaclesDistanceObstaclesDistance) Classifications(ctx context.Context, img image.Image, n int, extra map[string]interface{}) (classification.Classifications, error) {
-	panic("not implemented")
-}
-
-func (s *obstaclesDistanceObstaclesDistance) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vis.Object, error) {
-	panic("not implemented")
-}
-
-func (s *obstaclesDistanceObstaclesDistance) GetProperties(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
-	panic("not implemented")
-}
-
-func (s *obstaclesDistanceObstaclesDistance) CaptureAllFromCamera(ctx context.Context, cameraName string, captureOptions viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
-	panic("not implemented")
-}
-
-func (s *obstaclesDistanceObstaclesDistance) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	panic("not implemented")
-}
-
-func (s *obstaclesDistanceObstaclesDistance) Close(context.Context) error {
-	// Put close code here
-	s.cancelFunc()
-	return nil
+func getMedianPoint(pts []r3.Vector) r3.Vector {
+	sortVectors(pts)
+	index := (len(pts) - 1) / 2
+	return pts[index]
 }
