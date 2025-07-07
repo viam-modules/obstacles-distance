@@ -21,7 +21,7 @@ import (
 	vision "go.viam.com/rdk/vision"
 )
 
-var ObstaclesDistance = resource.NewModel("viam", "vision", "obstacles_distance")
+var ObstaclesDistance = resource.NewModel("viam", "vision", "obstacles-distance")
 
 // DefaultNumQueries is the default number of times the camera should be queried before averaging.
 const DefaultNumQueries = 10
@@ -50,13 +50,19 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
+	var warnings []string
+	if config.DefaultCamera == "" {
+		return nil, warnings, errors.Errorf(`expected "camera_name" attribute (DefaultCamera) for obstacles pointcloud at %q`, path)
+	}
+	deps = append(deps, config.DefaultCamera)
+
 	if config.NumQueries == 0 {
 		config.NumQueries = DefaultNumQueries
 	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
-		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
+		return nil, warnings, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
-	return deps, nil, nil
+	return deps, warnings, nil
 }
 
 func registerObstacleDistanceDetector(
