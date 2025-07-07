@@ -21,7 +21,7 @@ import (
 	vision "go.viam.com/rdk/vision"
 )
 
-var ObstaclesDistance = resource.DefaultModelFamily.WithModel("obstacles_distance")
+var ObstaclesDistance = resource.NewModel("viam", "vision", "obstacles_distance")
 
 // DefaultNumQueries is the default number of times the camera should be queried before averaging.
 const DefaultNumQueries = 10
