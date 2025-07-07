@@ -3,12 +3,12 @@
   "module_id": "viam:obstacles-distance",
   "visibility": "public",
   "url": "",
-  "description": "Modular vision service: obstacles-distance",
+  "description": "Module for detecting the distance to obstacles in a point cloud",
   "models": [
     {
       "api": "rdk:service:vision",
       "model": "viam:vision:obstacles-distance",
-      "short_description": "Provide a short (100 characters or less) description of this model here",
+      "short_description": "Detect the distance to obstacles in a point cloud",
       "markdown_link": "README.md#model-viamobstacles-distanceobstacles-distance"
     }
   ],
