@@ -1,18 +1,14 @@
-# Module obstacles-distance 
+# Obstacles Distance Module
 
-Provide a description of the purpose of the module and any relevant information.
-
-## Model viam:obstacles-distance:obstacles-distance
-
-Provide a description of the model and any relevant information.
+This module provides a service for a segmenter that takes point clouds from a camera input and returns the average single closest point to the camera as a perceived obstacle. It is best for transient obstacle avoidance.
 
 ### Configuration
 The following attribute template can be used to configure this model:
 
 ```json
 {
-"attribute_1": <float>,
-"attribute_2": <string>
+  "camera_name": "realsense-camera",
+  "num_queries": 10
 }
 ```
 
@@ -22,29 +18,39 @@ The following attributes are available for this model:
 
 | Name          | Type   | Inclusion | Description                |
 |---------------|--------|-----------|----------------------------|
-| `attribute_1` | float  | Required  | Description of attribute 1 |
-| `attribute_2` | string | Optional  | Description of attribute 2 |
+| `camera_name` | string | Required  | The name of the camera to use |
+| `num_queries` | int    | Optional  | The number of queries to make by the camera before averaging |
 
-#### Example Configuration
+#### Example Camera Configuration
 
 ```json
 {
-  "attribute_1": 1.0,
-  "attribute_2": "foo"
+  "name": "camera-1",
+  "api": "rdk:component:camera",
+  "model": "viam:camera:realsense",
+  "attributes": {
+    "width_px": 640,
+    "height_px": 480,
+    "little_endian_depth": false,
+    "serial_number": "",
+    "sensors": [
+      "depth",
+      "color"
+    ]
+  }
 }
 ```
 
-### DoCommand
-
-If your model implements DoCommand, provide an example payload of each command that is supported and the arguments that can be used. If your model does not implement DoCommand, remove this section.
-
-#### Example DoCommand
+#### Example Model Configuration
 
 ```json
 {
-  "command_name": {
-    "arg1": "foo",
-    "arg2": 1
+  "name": "vision-1",
+  "api": "rdk:service:vision",
+  "model": "viam:vision:obstacles-distance",
+  "attributes": {
+    "camera_name": "camera-1",
+    "num_queries": 10
   }
 }
 ```
