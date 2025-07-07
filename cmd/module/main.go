@@ -1,10 +1,10 @@
 package main
 
 import (
-	"obstaclesdistance"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
+	"obstaclesdistance"
 )
 
 func main() {
