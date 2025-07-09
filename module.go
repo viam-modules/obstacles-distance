@@ -50,9 +50,9 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
-	var warnings []string
+	var optionalDeps []string
 	if config.DefaultCamera == "" {
-		return nil, warnings, errors.Errorf(`expected "camera_name" attribute (DefaultCamera) for obstacles pointcloud at %q`, path)
+		return nil, optionalDeps, errors.Errorf(`expected "camera_name" attribute (DefaultCamera) for obstacles pointcloud at %q`, path)
 	}
 	deps = append(deps, config.DefaultCamera)
 
@@ -60,9 +60,9 @@ func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string,
 		config.NumQueries = DefaultNumQueries
 	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
-		return nil, warnings, errors.New("invalid number of queries, pick a number between 1 and 20")
+		return nil, optionalDeps, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
-	return deps, warnings, nil
+	return deps, optionalDeps, nil
 }
 
 func registerObstacleDistanceDetector(
