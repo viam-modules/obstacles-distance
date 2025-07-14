@@ -51,16 +51,14 @@ func init() {
 func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
 	var optionalDeps []string
-	if config.DefaultCamera == "" {
-		return nil, optionalDeps, errors.Errorf(`expected "camera_name" attribute (DefaultCamera) for obstacles pointcloud at %q`, path)
+	if config.DefaultCamera != "" {
+		deps = append(deps, config.DefaultCamera)
 	}
-	deps = append(deps, config.DefaultCamera)
-
 	if config.NumQueries == 0 {
 		config.NumQueries = DefaultNumQueries
 	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
-		return nil, optionalDeps, errors.New("invalid number of queries, pick a number between 1 and 20")
+		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
 	return deps, optionalDeps, nil
 }

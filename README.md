@@ -18,8 +18,8 @@ The following attributes are available for this model:
 
 | Name          | Type   | Inclusion | Description                |
 |---------------|--------|-----------|----------------------------|
-| `camera_name` | string | Required  | The name of the camera to use |
-| `num_queries` | int    | Optional  | The number of queries to make by the camera before averaging |
+| `camera_name` | string | Optional  | The name of the default camera to use |
+| `num_queries` | int    | Optional  | The number of queries to make by the camera before averaging, the default value is 10 |
 
 #### Example Camera Configuration
 
