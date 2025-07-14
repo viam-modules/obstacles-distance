@@ -8,9 +8,8 @@ require (
 	github.com/golang/geo v0.0.0-20250630213057-fac2d31592dd
 	github.com/pkg/errors v0.9.1
 	go.opencensus.io v0.24.0
-	go.viam.com/rdk v0.82.1
+	go.viam.com/rdk v0.83.0
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.148
 )
 
 require (
@@ -62,6 +61,7 @@ require (
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5 // indirect
 	github.com/go-pdf/fpdf v0.6.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.1.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
@@ -155,6 +155,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.viam.com/api v0.1.452 // indirect
+	go.viam.com/utils v0.1.149 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/arch v0.18.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
