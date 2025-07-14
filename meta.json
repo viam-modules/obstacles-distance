@@ -9,7 +9,7 @@
       "api": "rdk:service:vision",
       "model": "viam:vision:obstacles-distance",
       "short_description": "Detect the distance to obstacles in a point cloud",
-      "markdown_link": "README.md#model-viamobstacles-distanceobstacles-distance"
+      "markdown_link": "README.md#example-model-configuration"
     }
   ],
   "applications": null,
