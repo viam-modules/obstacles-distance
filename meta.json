@@ -2,7 +2,7 @@
   "$schema": "https://dl.viam.dev/module.schema.json",
   "module_id": "viam:obstacles-distance",
   "visibility": "public",
-  "url": "",
+  "url": "https://github.com/viam-modules/obstacles-distance",
   "description": "Module for detecting the distance to obstacles in a point cloud",
   "models": [
     {
