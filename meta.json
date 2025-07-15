@@ -2,7 +2,7 @@
   "$schema": "https://dl.viam.dev/module.schema.json",
   "module_id": "viam:obstacles-distance",
   "visibility": "public",
-  "url": "https://github.com/viam-modules/obstacles-distance",
+  "url": "https://github.com/AGanguly13/obstacles-distance/tree/nlopt-errorfix",
   "description": "Module for detecting the distance to obstacles in a point cloud",
   "models": [
     {
@@ -26,6 +26,6 @@
       "darwin/arm64",
       "windows/amd64"
     ],
-    "darwin_deps" : [ "nlopt-static", "go" ]
+    "darwin_deps" : ["nlopt-static"]
   }
 }
