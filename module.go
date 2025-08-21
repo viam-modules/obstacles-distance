@@ -56,7 +56,7 @@ func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string,
 	}
 	deps = append(deps, config.DefaultCamera)
 	if config.NumQueries == 0 {
-		config.NumQueries = DefaultNumQueries	
+		config.NumQueries = DefaultNumQueries
 	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
 		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
