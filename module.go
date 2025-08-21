@@ -52,7 +52,7 @@ func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string,
 	deps := []string{}
 	var optionalDeps []string
 	if config.DefaultCamera == "" {
-		return nil, optionalDeps, errors.Errorf(`expected "camera_name" attribute (DefaultCamera) for obstacles pointcloud at %q`, path)
+		return nil, optionalDeps, errors.New("expected 'camera_name' attribute for obstacles pointcloud")
 	}
 	deps = append(deps, config.DefaultCamera)
 	if config.NumQueries == 0 {
