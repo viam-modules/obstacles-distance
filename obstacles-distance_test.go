@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	viamdatautils "go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -34,7 +35,7 @@ func TestObstacleDist(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
 	r.LoggerFunc = func() logging.Logger {
@@ -70,17 +71,20 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, props.DetectionSupported, test.ShouldEqual, false)
 	test.That(t, props.ClassificationSupported, test.ShouldEqual, false)
 
+	namedImg, namedImgErr := camera.NamedImageFromImage(img, "test", utils.MimeTypeJPEG, viamdatautils.Annotations{})
+	test.That(t, namedImgErr, test.ShouldBeNil)
+
 	// Does not implement Detections
-	_, err = srv.Detections(ctx, img, nil)
+	_, err = srv.Detections(ctx, &namedImg, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 
 	// Does not implement Classifications
-	_, err = srv.Classifications(ctx, img, 1, nil)
+	_, err = srv.Classifications(ctx, &namedImg, 1, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
@@ -100,7 +104,7 @@ func TestObstacleDist(t *testing.T) {
 
 	count := 0
 	nums := []float64{10, 9, 4, 5, 3, 1, 2, 6, 7, 8}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
@@ -117,7 +121,7 @@ func TestObstacleDist(t *testing.T) {
 
 	// more than one point in cloud
 	count = 0
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
